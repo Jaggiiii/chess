@@ -1,56 +1,53 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Game = void 0;
-const chess_js_1 = require("chess.js");
-const messages_1 = require("./messages");
-class Game {
-    constructor(player1, player2) {
-        this.moveCount = 0;
-        this.board = new chess_js_1.Chess();
+import { WebSocket } from "ws";
+import { Chess } from "chess.js";
+import { GAME_OVER, INIT_GAME, MOVE } from "./messages";
+
+export class Game {
+    public player1: WebSocket;
+    public player2: WebSocket;
+    private board: Chess;
+    private moves: string[];
+    private startTime: Date;
+    private moveCount=0;
+
+    constructor(player1: WebSocket, player2: WebSocket) {
+        this.board = new Chess();
         this.moves = [];
         this.player1 = player1;
         this.player2 = player2;
         this.startTime = new Date();
+
         // Send the initial game setup to both players
         this.player1.send(JSON.stringify({
-            type: messages_1.INIT_GAME,
+            type: INIT_GAME,
             payload: {
                 color: "white"
             }
         }));
         this.player2.send(JSON.stringify({
-            type: messages_1.INIT_GAME,
+            type: INIT_GAME,
             payload: {
                 color: "black"
             }
         }));
     }
-    makeMove(socket, move) {
-        // Validate turn logic
+
+    makeMove(socket: WebSocket, move: { from: string; to: string }) {
+        // validate the type using zod
         if (this.moveCount % 2 === 0 && socket !== this.player1) {
-            socket.send(JSON.stringify({
-                type: "invalid_move",
-                payload: {
-                    message: "It's not your turn!"
-                }
-            }));
             return;
         }
         if (this.moveCount % 2 === 1 && socket !== this.player2) {
-            socket.send(JSON.stringify({
-                type: "invalid_move",
-                payload: {
-                    message: "It's not your turn!"
-                }
-            }));
             return;
         }
+
         console.log("no early return");
+
         try {
-            // Attempt to make the move
             const result = this.board.move(move);
             if (!result) {
-                console.log("Invalid move detected");
+                // If the move is invalid
+                console.log("invalid  move user ,do correct move")
                 socket.send(JSON.stringify({
                     type: "invalid_move",
                     payload: {
@@ -59,48 +56,41 @@ class Game {
                 }));
                 return;
             }
-        }
-        catch (error) {
-            console.error("Error making move:", error);
-            socket.send(JSON.stringify({
-                type: "invalid_move",
-                payload: {
-                    message: "Error processing the move. Check your input."
-                }
-            }));
+        } catch (e) {
+            console.log(e);
             return;
         }
-        console.log("move succeeded");
-        // Check for game over
+        console.log("move successed")
+
         if (this.board.isGameOver()) {
+            // Send game over message to both players
             this.player1.send(JSON.stringify({
-                type: messages_1.GAME_OVER,
+                type: GAME_OVER,
                 payload: {
                     winner: this.board.turn() === 'w' ? "black" : "white"
                 }
             }));
             this.player2.send(JSON.stringify({
-                type: messages_1.GAME_OVER,
+                type: GAME_OVER,
                 payload: {
                     winner: this.board.turn() === 'w' ? "black" : "white"
                 }
             }));
             return;
         }
-        // Notify the opponent of the valid move
+
+        // Send the move to the correct player
         if (this.moveCount % 2 === 0) {
             this.player2.send(JSON.stringify({
-                type: messages_1.MOVE,
+                type: MOVE,
                 payload: move
             }));
-        }
-        else {
+        } else {
             this.player1.send(JSON.stringify({
-                type: messages_1.MOVE,
+                type: MOVE,
                 payload: move
             }));
         }
         this.moveCount++;
     }
 }
-exports.Game = Game;
