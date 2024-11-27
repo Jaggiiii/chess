@@ -26,53 +26,24 @@ class Game {
         }));
     }
     makeMove(socket, move) {
-        // Validate turn logic
+        // validate the type using zod
         if (this.moveCount % 2 === 0 && socket !== this.player1) {
-            socket.send(JSON.stringify({
-                type: "invalid_move",
-                payload: {
-                    message: "It's not your turn!"
-                }
-            }));
             return;
         }
         if (this.moveCount % 2 === 1 && socket !== this.player2) {
-            socket.send(JSON.stringify({
-                type: "invalid_move",
-                payload: {
-                    message: "It's not your turn!"
-                }
-            }));
             return;
         }
         console.log("no early return");
         try {
-            // Attempt to make the move
-            const result = this.board.move(move);
-            if (!result) {
-                console.log("Invalid move detected");
-                socket.send(JSON.stringify({
-                    type: "invalid_move",
-                    payload: {
-                        message: "Invalid move. Please follow chess rules."
-                    }
-                }));
-                return;
-            }
+            this.board.move(move);
         }
-        catch (error) {
-            console.error("Error making move:", error);
-            socket.send(JSON.stringify({
-                type: "invalid_move",
-                payload: {
-                    message: "Error processing the move. Check your input."
-                }
-            }));
+        catch (e) {
+            console.log(e);
             return;
         }
-        console.log("move succeeded");
-        // Check for game over
+        console.log("move successed");
         if (this.board.isGameOver()) {
+            // Send game over message to both players
             this.player1.send(JSON.stringify({
                 type: messages_1.GAME_OVER,
                 payload: {
@@ -87,7 +58,7 @@ class Game {
             }));
             return;
         }
-        // Notify the opponent of the valid move
+        // Send the move to the correct player
         if (this.moveCount % 2 === 0) {
             this.player2.send(JSON.stringify({
                 type: messages_1.MOVE,
